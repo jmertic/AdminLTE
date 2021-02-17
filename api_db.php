@@ -62,18 +62,27 @@ if(isset($_GET["network"]) && $auth)
 
 	while($results !== false && $res = $results->fetchArray(SQLITE3_ASSOC))
 	{
-		$id = $res["id"];
-		// Empty array for holding the IP addresses
+		$id = intval($res["id"]);
+
+		// Get IP addresses and host names for this device
 		$res["ip"] = array();
-		// Get IP addresses for this device
-		$network_addresses = $db->query("SELECT ip FROM network_addresses WHERE network_id = $id ORDER BY lastSeen DESC");
-		while($network_addresses !== false && $ip = $network_addresses->fetchArray(SQLITE3_ASSOC))
-			array_push($res["ip"],$ip["ip"]);
-		// UTF-8 encode host name and vendor
-		$res["name"] = utf8_encode($res["name"]);
+		$res["name"] = array();
+		$network_addresses = $db->query("SELECT ip,name FROM network_addresses WHERE network_id = $id ORDER BY lastSeen DESC");
+		while($network_addresses !== false && $network_address = $network_addresses->fetchArray(SQLITE3_ASSOC))
+		{
+			array_push($res["ip"],$network_address["ip"]);
+			if($network_address["name"] !== null)
+				array_push($res["name"],utf8_encode($network_address["name"]));
+			else
+				array_push($res["name"],"");
+		}
+		$network_addresses->finalize();
+
+		// UTF-8 encode vendor
 		$res["macVendor"] = utf8_encode($res["macVendor"]);
 		array_push($network, $res);
 	}
+	$results->finalize();
 
 	$data = array_merge($data, array('network' => $network));
 }
@@ -85,7 +94,7 @@ if (isset($_GET['getAllQueries']) && $auth)
 	{
 		$from = intval($_GET["from"]);
 		$until = intval($_GET["until"]);
-		$dbquery = "SELECT timestamp, type, domain, client, status FROM queries WHERE timestamp >= :from AND timestamp <= :until ";
+		$dbquery = "SELECT timestamp, type, domain, client, status, forward FROM queries WHERE timestamp >= :from AND timestamp <= :until ";
 		if(isset($_GET["types"]))
 		{
 			$types = $_GET["types"];
@@ -111,41 +120,15 @@ if (isset($_GET['getAllQueries']) && $auth)
 		if(!is_bool($results))
 			while ($row = $results->fetchArray())
 			{
+				// Try to resolve host name of this client
 				$c = resolveHostname($row[3],false);
 
 				// Convert query type ID to name
-				// Names taken from FTL's query type names
-				switch($row[1]) {
-					case 1:
-						$query_type = "A";
-						break;
-					case 2:
-						$query_type = "AAAA";
-						break;
-					case 3:
-						$query_type = "ANY";
-						break;
-					case 4:
-						$query_type = "SRV";
-						break;
-					case 5:
-						$query_type = "SOA";
-						break;
-					case 6:
-						$query_type = "PTR";
-						break;
-					case 7:
-						$query_type = "TXT";
-						break;
-					case 8:
-						$query_type = "NAPTR";
-						break;
-					default:
-						$query_type = "UNKN";
-						break;
-				}
-				// array:        time     type         domain                client           status
-				$allQueries[] = [$row[0], $query_type, utf8_encode($row[2]), utf8_encode($c), $row[4]];
+				$query_type = getQueryTypeStr($row[1]);
+
+				// Insert into array
+				// array:        time     type         domain                                     client           status   upstream destination
+				$allQueries[] = [$row[0], $query_type, utf8_encode(str_replace("~"," ",$row[2])), utf8_encode($c), $row[4], utf8_encode($row[5])];
 			}
 	}
 	$result = array('data' => $allQueries);

@@ -12,8 +12,8 @@ var timeLineChart, clientsChart;
 var queryTypePieChart, forwardDestinationPieChart;
 
 var THEME_COLORS = [
-  "#3c8dbc",
   "#f56954",
+  "#3c8dbc",
   "#00a65a",
   "#00c0ef",
   "#f39c12",
@@ -49,7 +49,7 @@ var customTooltips = function (tooltip) {
     tooltipEl.style.fontStyle = tooltip._bodyFontStyle;
     // append Tooltip next to canvas-containing box
     tooltipEl.ancestor = this._chart.canvas.closest(".box[id]").parentNode;
-    tooltipEl.ancestor.appendChild(tooltipEl);
+    tooltipEl.ancestor.append(tooltipEl);
   }
 
   // Hide if no tooltip
@@ -251,15 +251,11 @@ function updateQueriesOverTime() {
     // Add data for each hour that is available
     for (var hour in data.ads_over_time[0]) {
       if (Object.prototype.hasOwnProperty.call(data.ads_over_time[0], hour)) {
-        var d, h;
-        h = parseInt(data.domains_over_time[0][hour], 10);
-        if (parseInt(data.ads_over_time[0][0], 10) < 1200) {
-          // Fallback - old style
-          d = new Date().setHours(Math.floor(h / 6), 10 * (h % 6), 0, 0);
-        } else {
-          // New style: Get Unix timestamps
-          d = new Date(1000 * h);
-        }
+        var h = parseInt(data.domains_over_time[0][hour], 10);
+        var d =
+          parseInt(data.ads_over_time[0][0], 10) < 1200
+            ? new Date().setHours(Math.floor(h / 6), 10 * (h % 6), 0, 0)
+            : new Date(1000 * h);
 
         timeLineChart.data.labels.push(d);
         var blocked = data.ads_over_time[1][hour];
@@ -297,14 +293,9 @@ function updateQueryTypesPie() {
     var v = [],
       c = [],
       k = [],
-      i = 0,
-      iter;
+      i = 0;
     // Collect values and colors, and labels
-    if (Object.prototype.hasOwnProperty.call(data, "querytypes")) {
-      iter = data.querytypes;
-    } else {
-      iter = data;
-    }
+    var iter = Object.prototype.hasOwnProperty.call(data, "querytypes") ? data.querytypes : data;
 
     querytypeids = [];
     Object.keys(iter).forEach(function (key) {
@@ -336,13 +327,14 @@ function updateQueryTypesPie() {
         $(this).toggleClass("strike");
         var index = $(this).index();
         var ci = e.view.queryTypePieChart;
-        var meta = ci.data.datasets[0]._meta;
-        for (var i in meta) {
-          if (Object.prototype.hasOwnProperty.call(meta, i)) {
-            var curr = meta[i].data[index];
-            curr.hidden = !curr.hidden;
-          }
-        }
+        var mobj = ci.data.datasets[0]._meta;
+        var metas = Object.keys(mobj).map(function (e) {
+          return mobj[e];
+        });
+        metas.forEach(function (meta) {
+          var curr = meta.data[index];
+          curr.hidden = !curr.hidden;
+        });
 
         ci.update();
       } else if (e.which === 1) {
@@ -494,19 +486,22 @@ function updateForwardDestinationsPie() {
         $(this).toggleClass("strike");
         var index = $(this).index();
         var ci = e.view.forwardDestinationPieChart;
-        var meta = ci.data.datasets[0]._meta;
-        for (var i in meta) {
-          if (Object.prototype.hasOwnProperty.call(meta, i)) {
-            var curr = meta[i].data[index];
-            curr.hidden = !curr.hidden;
-          }
-        }
+        var mobj = ci.data.datasets[0]._meta;
+        var metas = Object.keys(mobj).map(function (e) {
+          return mobj[e];
+        });
+        metas.forEach(function (meta) {
+          var curr = meta.data[index];
+          curr.hidden = !curr.hidden;
+        });
 
         ci.update();
       } else if (e.which === 1) {
         // which == 1 is left mouse button
         var obj = encodeURIComponent(e.target.textContent);
-        window.open("queries.php?forwarddest=" + obj, "_self");
+        if (obj.length > 0) {
+          window.open("queries.php?forwarddest=" + obj, "_self");
+        }
       }
     });
   }).done(function () {
@@ -592,7 +587,7 @@ function updateTopClientsChart() {
         url =
           '<a href="queries.php?client=' +
           clientip +
-          '" title="' +
+          '&type=blocked" title="' +
           clientip +
           '">' +
           clientname +
@@ -792,6 +787,34 @@ function updateSummaryData(runOnce) {
     .fail(function () {
       setTimer(300);
     });
+}
+
+function doughnutTooltip(tooltipItems, data) {
+  var dataset = data.datasets[tooltipItems.datasetIndex];
+  var label = data.labels[tooltipItems.index];
+  // Compute share of total and of displayed
+  var scale = 0,
+    total = 0;
+  var metas = Object.keys(dataset._meta).map(function (e) {
+    return dataset._meta[e];
+  });
+  metas.forEach(function (meta) {
+    meta.data.forEach(function (val, i) {
+      if (val.hidden) scale += dataset.data[i];
+      total += dataset.data[i];
+    });
+  });
+  if (scale === 0)
+    // All items shown
+    return label + ": " + dataset.data[tooltipItems.index].toFixed(1) + "%";
+  return (
+    label +
+    ":<br>- " +
+    dataset.data[tooltipItems.index].toFixed(1) +
+    "% of all queries<br>- " +
+    ((dataset.data[tooltipItems.index] * 100) / (total - scale)).toFixed(1) +
+    "% of shown items"
+  );
 }
 
 $(function () {
@@ -1001,6 +1024,24 @@ $(function () {
     return false;
   });
 
+  $("#clientsChart").click(function (evt) {
+    var activePoints = clientsChart.getElementAtEvent(evt);
+    if (activePoints.length > 0) {
+      //get the internal index of slice in pie chart
+      var clickedElementindex = activePoints[0]._index;
+
+      //get specific label by index
+      var label = clientsChart.data.labels[clickedElementindex];
+
+      //get value by index
+      var from = label / 1000 - 300;
+      var until = label / 1000 + 300;
+      window.location.href = "queries.php?from=" + from + "&until=" + until;
+    }
+
+    return false;
+  });
+
   if (document.getElementById("queryTypePieChart")) {
     ctx = document.getElementById("queryTypePieChart").getContext("2d");
     queryTypePieChart = new Chart(ctx, {
@@ -1026,9 +1067,7 @@ $(function () {
               return "Query types";
             },
             label: function (tooltipItems, data) {
-              var dataset = data.datasets[tooltipItems.datasetIndex];
-              var label = data.labels[tooltipItems.index];
-              return label + ": " + dataset.data[tooltipItems.index].toFixed(1) + "%";
+              return doughnutTooltip(tooltipItems, data);
             }
           }
         },
@@ -1068,9 +1107,7 @@ $(function () {
               return "Forward destinations";
             },
             label: function (tooltipItems, data) {
-              var dataset = data.datasets[tooltipItems.datasetIndex];
-              var label = data.labels[tooltipItems.index];
-              return label + ": " + dataset.data[tooltipItems.index].toFixed(1) + "%";
+              return doughnutTooltip(tooltipItems, data);
             }
           }
         },
