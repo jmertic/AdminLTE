@@ -6,7 +6,7 @@ var speedlabels = [],
 
 function updateSpeedTestData() {
   function formatDate(itemdate) {
-    return moment(itemdate).format("Do HH:mm");
+    return moment(itemdate);
   }
 
   $.ajax({
@@ -98,16 +98,21 @@ var speedChart = new Chart(speedChartctx, {
       ],
       xAxes: [
         {
-          // type :'time',
+          type: 'time',
+          time: {
+            unit: "hour",
+            displayFormats: {
+              hour: "MMM HH:mm"
+            },
+            tooltipFormat: "MMM Do YYYY, HH:mm"
+          },
           display: true,
           scaleLabel: {
             display: true
           },
           ticks: {
-            // autoSkip: true,
-            maxTicksLimit: 10,
-            maxRotation: 0,
-            minRotation: 0
+            autoSkip: true,
+            maxTicksLimit: 20,
           }
         }
       ]
