@@ -1478,7 +1478,7 @@ if (isset($_GET['tab']) && in_array($_GET['tab'], array("sysadmin", "adlists", "
                                                     <label>Speedtest Mode</label>
                                                     <select name="speedtestmode" class="form-control" >
                                                         <option value="official" <?php if($speedtestmode == "official") {?> selected <?php } ?>>Official CLI</option>
-                                                        <option value="python" <?php if($speedtestmode == "python") {?> selected <?php } ?>>Python</option>
+                                                        <option value="python" disabled <?php if($speedtestmode == "python") {?> selected <?php } ?>>Python</option>
                                                     </select>
                                                 </div>
 
