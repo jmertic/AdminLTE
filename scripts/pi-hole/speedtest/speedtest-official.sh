@@ -15,9 +15,9 @@ function nointernet(){
 
 
 if [[ "$serverid" =~ ^[0-9]+$ ]]; then
-    /usr/bin/speedtest -s $serverid --accept-gdpr --accept-license -f json-pretty > /tmp/speedtest.log || nointernet
+    /usr/bin/speedtest -s $serverid --accept-gdpr --accept-license -f json-pretty --unit B/s > /tmp/speedtest.log || nointernet
 else
-    /usr/bin/speedtest --accept-gdpr --accept-license -f json-pretty > /tmp/speedtest.log || nointernet
+    /usr/bin/speedtest --accept-gdpr --accept-license -f json-pretty --unit B/s > /tmp/speedtest.log || nointernet
 fi
 
 
